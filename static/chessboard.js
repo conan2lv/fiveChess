@@ -1,6 +1,5 @@
 var canvas = document.getElementById("chessboard"); //获取节点
 var board = canvas.getContext("2d"); //棋盘画布
-var text = canvas.getContext("2d"); //文字画布
 var chess = canvas.getContext("2d"); //棋子画布
 let width = canvas.getAttribute("width"); //画布宽度
 let height = canvas.getAttribute("height"); //画布高度
@@ -39,13 +38,13 @@ function DrawChessBoard(){
 
 //等待中
 function wait(){
-  text.fillStyle = 'rgba(151, 92, 14, 0.3)'
-  text.fillRect(0,0,width,height);
-  text.fillStyle = 'rgb(255, 255, 255)'
-  text.font="20px Arial";
-  text.textAlign = 'center'
-  text.textBaseline="middle";
-  text.fillText("等待玩家加入中...",width / 2, height / 2);
+  board.fillStyle = 'rgba(151, 92, 14, 0.3)'
+  board.fillRect(0,0,width,height);
+  board.fillStyle = 'rgb(255, 255, 255)'
+  board.font="20px Arial";
+  board.textAlign = 'center'
+  board.textBaseline="middle";
+  board.fillText("等待玩家加入中...",width / 2, height / 2);
 }
 
 //落子
