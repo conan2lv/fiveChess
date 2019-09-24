@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link href="/style.css" rel="stylesheet" type="text/css" />
+    <title>在线五子棋小游戏</title>
+</head>
+<body>
+    <div id='main'>
+        <div class='chessboard'>
+            <h3 class='text'>欢迎来到五子棋小游戏</h3>
+            <canvas id='chessboard' width='290' height='290'></canvas>
+        </div>
+        <div class='btn-start' onclick='startGame()'>开始游戏</div>
+        <div class='btn-end' onclick='endGame()'>退出游戏</div>
+    </div>
+</body>
+<script type='text/javascript' src='./chessboard.js'></script>
+<script type='text/javascript' src='./util.js'></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+<script>
+    var socket = io('ws://localhost:3001'); //连接
+    var point = []; //棋盘的点
+    var player = -1; //棋子的颜色,0为黑子，1为白子
+    var position = getXY(document.getElementsByTagName('canvas')[0]);
+
+    function init(){
+        board.clearRect(0,0,width,height);
+        DrawChessBoard(); //绘制棋盘
+        $('.btn-end')[0].style.display = 'none';
+        $('.btn-start')[0].style.display = 'block';
+        for(let i = 0; i < 19; i++){
+            point.push([]);
+            for(let j = 0; j < 19; j++){
+                point[i][j] = -1;
+            }
+        }
+    }
+
+    DrawChessBoard(); //绘制棋盘
+    for(let i = 0; i < 19; i++){
+        point.push([]);
+        for(let j = 0; j < 19; j++){
+            point[i][j] = -1;
+        }
+    }
+
+    //判断获胜条件
+    function isVectory(x,y,player){
+        var count = 0;
+        //横向判断
+        for(let i = 1; i < 5; i++){
+            if(x - i < 0) break;
+            if(point[x-i][y] === player) count++;
+        }
+        for(let i = 1; i < 5 - count;i++){
+            if(x + i > 14) break;
+            if(point[x+i][y] === player) count++;
+        }
+        if(count >= 4) return true;
+        count = 0;
+        //纵向判断
+        for(let i = 1; i < 5; i++){
+            if(y - i < 0) break;
+            if(point[x][y-i] === player) count++;
+        }
+        for(let i = 1; i < 5 - count;i++){
+            if(y + i > 14) break;
+            if(point[x][y+i] === player) count++;
+        }
+        if(count >= 4) return true;
+        count = 0;
+        //斜下检测
+        for(let i = 1; i < 5; i++){
+            if(x - i < 0 || y - i < 0) break;
+            if(point[x-i][y-i] === player) count++;
+        }
+        for(let i = 1; i < 5 - count;i++){
+            if(x + i > 14 || y + i > 14) break;
+            if(point[x + i][y + i] === player) count++;
+        }
+        if(count >= 4) return true;
+        count = 0;
+        //斜上检测
+        for(let i = 1; i < 5; i++){
+            if(x + i > 14 || y - i < 0) break;
+            if(point[x+i][y-i] === player) count++;
+        }
+        for(let i = 1; i < 5 - count;i++){
+            if(x - i < 0 || y + i > 4) break;
+            if(point[x-i][y+i] === player) count++;
+        }
+        if(count >= 4) return true;
+        return false;
+    }
+
+    //监听消息
+    socket.on("message", function(msg) {
+        init()
+        alert(msg)
+    });
+
+    //游戏正式开始
+    socket.on('startGame',function(p){
+        board.clearRect(0,0,width,height);
+        text.clearRect(0,0,width,height);
+        chess.clearRect(0,0,width,height)
+        DrawChessBoard();
+        player = p;
+        if(!player){
+            $('canvas').on('touchend',function(e){
+                e.preventDefault();
+                let x = e.originalEvent.changedTouches[0].clientX
+                let y = e.originalEvent.changedTouches[0].clientY
+                let X = x - position.x;
+                let Y = y - position.y;
+                let p = getPoint(X,Y,space,spacew,spaceh)
+                if(point[p.x][p.y] === -1){
+                    point[p.x][p.y] = player;
+                    onChess(p.x,p.y,player)
+                    //落子结束,发消息给服务器
+                    isVectory(p.x,p.y,player) ? socket.emit('endGame',player) :
+                    socket.emit('turnEnd',{
+                        player: player,
+                        x : p.x,
+                        y : p.y
+                    })
+                    $('canvas').unbind()
+                }
+            })
+        }
+    })
+
+    //轮到我落子
+    socket.on('myTurn',function(data){
+        onChess(data.x,data.y,+!player)
+        point[data.x][data.y] = +!player
+        $('canvas').on('touchend',function(e){
+            e.preventDefault();
+            let x = e.originalEvent.changedTouches[0].clientX
+            let y = e.originalEvent.changedTouches[0].clientY
+            let X = x - position.x;
+            let Y = y - position.y;
+            let p = getPoint(X,Y,space,spacew,spaceh)
+            if(point[p.x][p.y] === -1){
+                point[p.x][p.y] = player;
+                onChess(p.x,p.y,player)
+                //落子结束,发消息给服务器
+                socket.emit('turnEnd',{
+                    player: player,
+                    x : p.x,
+                    y : p.y
+                })
+                if(isVectory(p.x,p.y,player)){
+                    socket.emit('endGame',player)
+                }
+                $('canvas').unbind()
+            }
+        })
+    })
+
+    //等待其他玩家加入
+    socket.on('wait',function(data){
+        wait();
+    })
+
+    socket.on('win',function(){
+        alert('你赢了')
+        init()
+    })
+
+    socket.on('lose',function(){
+        alert('你输了')
+        init()
+    })
+
+    socket.on('full',function(msg){
+        alert(msg);
+        $('.btn-end')[0].style.display = 'none';
+        $('.btn-start')[0].style.display = 'block';
+    })
+
+    socket.on('disconnect',function(){
+       /* socket.close()
+        init()*/
+        console.log('服务器断开连接')
+    })
+    //开始游戏
+    function startGame(){
+        $('.btn-end')[0].style.display = 'block';
+        $('.btn-start')[0].style.display = 'none';
+        socket.emit("start", socket.id);
+    }
+    
+    //游戏进行中
+    /*$('canvas').on('touchmove', throttle(function (e) {
+        e.preventDefault();
+        let x = e.originalEvent.touches[0].clientX
+        let y = e.originalEvent.touches[0].clientY
+        console.log(x)
+    },100));*/
+
+    //退出游戏
+    function endGame(){
+        $('.btn-end')[0].style.display = 'none';
+        $('.btn-start')[0].style.display = 'block';
+        socket.emit('quit',socket.id)
+        init()
+    }
+
+</script>
+</html>
